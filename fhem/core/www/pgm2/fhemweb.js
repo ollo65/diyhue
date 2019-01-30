@@ -1,6 +1,6 @@
 "use strict";
 var FW_version={};
-FW_version["fhemweb.js"] = "$Id: fhemweb.js 17826 2018-11-23 10:40:33Z rudolfkoenig $";
+FW_version["fhemweb.js"] = "$Id: fhemweb.js 18399 2019-01-24 13:18:20Z rudolfkoenig $";
 
 var FW_serverGenerated;
 var FW_serverFirstMsg = (new Date()).getTime()/1000;
@@ -289,7 +289,7 @@ FW_jqueryReadyFn()
 
   $("select[id^=sel_attr],select[id^=sel_set],select[id^=sel_get]")
   .change(function(){ // online help
-    var val =$(this).val().replace(/[.\/(){}\[\]]/g,function(a){return "\\"+a});
+    var val=$(this).val().replace(/[.\/(){}\[\]*]/g,function(a){return "\\"+a});
     var m = $(this).attr("name").match(/arg.(set|get|attr)(.*)/);
     if(!m)
       return;

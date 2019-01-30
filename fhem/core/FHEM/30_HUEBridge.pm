@@ -1,5 +1,5 @@
 
-# $Id: 30_HUEBridge.pm 17986 2018-12-16 14:20:19Z justme1968 $
+# $Id: 30_HUEBridge.pm 18419 2019-01-25 19:52:02Z justme1968 $
 
 # "Hue Personal Wireless Lighting" is a trademark owned by Koninklijke Philips Electronics N.V.,
 # see www.meethue.com for more information.
@@ -1075,6 +1075,8 @@ HUEBridge_updateGroups($$)
     foreach my $light ( split(',', $chash->{lights}) ) {
       next if( !$light );
       my $current = $modules{HUEDevice}{defptr}{"$name-$light"}{helper};
+      next if( !$current );
+      next if( $current->{helper}{devtype} );
 
       $readings{ct} += $current->{ct};
       $readings{bri} += $current->{bri};

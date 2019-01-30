@@ -1,4 +1,4 @@
-# $Id: configDB.pm 17297 2018-09-08 11:01:04Z betateilchen $
+# $Id: configDB.pm 18319 2019-01-18 18:06:55Z betateilchen $
 
 =for comment
 
@@ -142,6 +142,9 @@
 #
 # 2018-09-08 - change    remove base64 migration functions
 #
+# 2019-01-17 - added     support for device specific uuid (setuuid)
+# 2019-01-18 - changed   use GetDefAndAttr()
+#
 ##############################################################################
 =cut
 
@@ -156,6 +159,7 @@ use MIME::Base64;
 # Forward declarations for functions in fhem.pl
 #
 sub AnalyzeCommandChain($$;$);
+sub GetDefAndAttr($;$);
 sub Log($$);
 sub Log3($$$);
 sub createUniqueId();
@@ -202,19 +206,27 @@ sub _cfgDB_dump($);
 # Read configuration file for DB connection
 #
 
-if(!open(CONFIG, 'configDB.conf')) {
-	Log3('configDB', 1, 'Cannot open database configuration file configDB.conf');
-	return 0;
-}
+
+my ($err,@c) = FileRead({FileName  => 'configDB.conf', 
+                           ForceType => "file"}); 
+return 0 if ($err);
 
 my @config;
-while (<CONFIG>){
-   my $line = $_;
+
+foreach my $line (@c) {
    $line =~ s/^\s+|\s+$//g; # remove whitespaces etc.
    $line =~ s/;$/;;/;       # duplicate ; at end-of-line
    push (@config,$line) if($line !~ m/^#/ && length($line) > 0);
 }
-close CONFIG;
+
+
+#while (<CONFIG>){
+#   my $line = $_;
+#   $line =~ s/^\s+|\s+$//g; # remove whitespaces etc.
+#   $line =~ s/;$/;;/;       # duplicate ; at end-of-line
+#   push (@config,$line) if($line !~ m/^#/ && length($line) > 0);
+#}
+#close CONFIG;
 
 use vars qw(%configDB);
 
@@ -452,27 +464,7 @@ sub cfgDB_SaveCfg(;$) {
 			next;
 		}
 
-		if($d ne "global") {
-			my $def = $defs{$d}{DEF};
-			if(defined($def)) {
-				$def =~ s/;/;;/g;
-				$def =~ s/\n/\\\n/g;
-			} else {
-				$def = "";
-			}
-			push @rowList, "define $d $defs{$d}{TYPE} $def";
-		}
-
-		foreach my $a (sort {
-			return -1 if($a eq "userattr"); # userattr must be first
-			return  1 if($b eq "userattr");
-			return $a cmp $b;
-			} keys %{$attr{$d}}) {
-			next if (grep { $_ eq "$d:$a" } @dontSave);
-			my $val = $attr{$d}{$a};
-			$val =~ s/;/;;/g;
-			push @rowList, "attr $d $a $val";
-		}
+		push (@rowList, GetDefAndAttr($d,1));
 
 	}
 
@@ -651,7 +643,7 @@ sub cfgDB_MigrationImport() {
 
 # return SVN Id, called by fhem's CommandVersion
 sub cfgDB_svnId() { 
-	return "# ".'$Id: configDB.pm 17297 2018-09-08 11:01:04Z betateilchen $' 
+	return "# ".'$Id: configDB.pm 18319 2019-01-18 18:06:55Z betateilchen $' 
 }
 
 # return filelist depending on directory and regexp
@@ -1029,7 +1021,8 @@ sub _cfgDB_Search($$;$) {
 	push @result, "--------------------------------------------------------------------------------";
 	while (@line = $sth->fetchrow_array()) {
 		$row = "$line[0] $line[1] $line[2] $line[3]";
-		push @result, "$row";
+		Log 5,"configDB: $row";
+		push @result, "$row" unless ($line[0] eq 'setuuid');
 	}
 	$fhem_dbh->disconnect();
 	$ret = join("\n", @result);

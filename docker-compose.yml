@@ -9,6 +9,12 @@ services:
         image: fhem/fhem:latest
         volumes:
             - ./fhem/core/:/opt/fhem/
+            - /dev/serial/by-id:/dev/serial/by-id
+        build: fhem
+        privileged: true
+        devices:
+            - "dev/ttyUSB0:/dev/ttyUSB0"
+            - "dev/ttyUSB1:/dev/ttyUSB1"    
         networks:
             - fhem-network
         environment:
@@ -21,13 +27,6 @@ services:
         depends_on:
             - "mysql"
             - "mqtt"
-
-    habridge:
-        restart: always
-        build: habridge
-        network_mode: host
-        volumes:
-            - ./habridge/data/:/opt/habridge/data/
 
     mysql:
         restart: always
@@ -76,7 +75,42 @@ services:
             - fhem-network
         depends_on:
             - "mqtt"
-
+            
+    homebridge:
+        image: oznu/homebridge:latest
+        restart: always
+        ports:
+            - "8282:8282"
+            - "5353:5353"
+            - "51830:51830"
+        network_mode: host
+        environment:
+            - PGID=1000
+            - PUID=1000
+        volumes:
+            - ./homebridge:/homebridge
+            
+    alexa-fhem:
+        image: fhem/alexa-fhem:latest
+        restart: always
+        networks:
+            - fhem-network
+        ports:
+            - "3000:3000"
+        volumes:
+            - "./alexa-fhem/:/alexa-fhem/"
+        environment:
+            ALEXAFHEM_UID: 6062
+            ALEXAFHEM_GID: 6062
+            TZ: Europe/Berlin
+            
+    diyHue:
+        image: diyhue/core:latest
+        restart: always
+        network_mode: host
+        volumes:
+            - ./mnt/hue-emulator/export/:/opt/hue-emulator/export/
+                
 networks:
     fhem-network:
         driver: bridge

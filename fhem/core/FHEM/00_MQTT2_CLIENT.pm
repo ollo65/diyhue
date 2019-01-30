@@ -1,5 +1,5 @@
 ##############################################
-# $Id: 00_MQTT2_CLIENT.pm 18167 2019-01-07 08:26:35Z rudolfkoenig $
+# $Id: 00_MQTT2_CLIENT.pm 18440 2019-01-28 10:23:20Z rudolfkoenig $
 package main;
 
 use strict;
@@ -342,6 +342,7 @@ MQTT2_CLIENT_Read($@)
       $val = "" if(!defined($val));
       my $ac = AttrVal($name, "autocreate", undef) ? "autocreate:":"";
       my $cid = $hash->{clientId};
+      $tp =~ s/:/_/g; # 96608
       Dispatch($hash, "$ac$cid:$tp:$val", undef, !$ac);
 
       my $re = AttrVal($name, "rawEvents", undef);
@@ -399,6 +400,9 @@ MQTT2_CLIENT_Write($$$)
 {
   my ($hash, $function, $topicMsg) = @_;
 
+  return "Ignoring the message as $hash->{NAME} is not yet connected"
+        if($hash->{connecting});
+
   if($function eq "publish") {
     my ($topic, $msg) = split(" ", $topicMsg, 2);
     my $retain;
@@ -416,6 +420,7 @@ MQTT2_CLIENT_Write($$$)
     my $name = $hash->{NAME};
     Log3 $name, 1, "$name: ERROR: Ignoring function $function";
   }
+  return undef;
 }
 
 sub

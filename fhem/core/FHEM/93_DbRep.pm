@@ -1,5 +1,5 @@
 ﻿##########################################################################################################
-# $Id: 93_DbRep.pm 18163 2019-01-06 17:13:00Z DS_Starter $
+# $Id: 93_DbRep.pm 18409 2019-01-25 13:04:35Z DS_Starter $
 ##########################################################################################################
 #       93_DbRep.pm
 #
@@ -57,6 +57,11 @@ no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 # Versions History intern
 our %DbRep_vNotesIntern = (
+  "8.11.1" => "25.01.2019  fix sort of versionNotes ",
+  "8.11.0" => "24.01.2019  command exportToFile or attribute \"expimpfile\" accepts option \"MAXLINES=\" ",
+  "8.10.1" => "23.01.2019  change DbRep_charfilter to eliminate \xc2",
+  "8.10.0" => "19.01.2019  sqlCmd, dbValue may input SQL session variables, Forum:#96082 ",
+  "8.9.10" => "18.01.2019  fix warnings Malformed UTF-8 character during importFromFile, Forum:#96056 ",
   "8.9.9"  => "06.01.2019  diffval_DoParse: 'ORDER BY TIMESTAMP' added to statements Forum:https://forum.fhem.de/index.php/topic,53584.msg882082.html#msg882082",
   "8.9.8"  => "27.11.2018  minor fix in deviceRename, commandref revised ",
   "8.9.7"  => "21.11.2018  DbRep_firstconnect now uses attribute \"timeout\" ",
@@ -129,6 +134,8 @@ our %DbRep_vNotesIntern = (
 
 # Versions History extern:
 our %DbRep_vNotesExtern = (
+  "8.11.0" => "24.01.2019 command exportToFile or attribute \"expimpfile\" accepts option \"MAXLINES=\" ",
+  "8.10.0" => "19.01.2019 In commands sqlCmd, dbValue you may now use SQL session variables like \"SET \@open:=NULL,\@closed:=NULL; SELECT ...\", Forum:#96082",
   "8.9.0"  => "07.11.2018 new command set delDoublets added. This command allows to delete multiple occuring identical records. ",
   "8.8.0"  => "06.11.2018 new attribute 'fastStart'. Usually every DbRep-device is making a short connect to its database when "
               ."FHEM is restarted. When this attribute is set, the initial connect is done when the DbRep-device is doing its "
@@ -378,7 +385,7 @@ sub DbRep_Define($@) {
   $hash->{MODEL}               = $hash->{ROLE};
   $hash->{HELPER}{DBLOGDEVICE} = $a[2];
   $hash->{HELPER}{IDRETRIES}   = 3;                                            # Anzahl wie oft versucht wird initiale Daten zu holen
-  $hash->{VERSION}             = (reverse sort(keys %DbRep_vNotesIntern))[0];
+  $hash->{VERSION}             = (DbRep_sortVersion("desc",keys %DbRep_vNotesIntern))[0];
   $hash->{NOTIFYDEV}           = "global,".$name;                              # nur Events dieser Devices an DbRep_Notify weiterleiten 
   my $dbconn                   = $defs{$a[2]}{dbconn};
   $hash->{DATABASE}            = (split(/;|=/, $dbconn))[1];
@@ -408,6 +415,7 @@ sub DbRep_Set($@) {
   my $name           = $a[0];
   my $opt            = $a[1];
   my $prop           = $a[2];
+  my $prop1          = $a[3];
   my $dbh            = $hash->{DBH};
   my $dblogdevice    = $hash->{HELPER}{DBLOGDEVICE};
   $hash->{dbloghash} = $defs{$dblogdevice};
@@ -743,11 +751,12 @@ sub DbRep_Set($@) {
       
   } elsif ($opt eq "exportToFile" && $hash->{ROLE} ne "Agent") {
       $hash->{LASTCMD} = $prop?"$opt $prop":"$opt";
-      my $f = $prop if($prop);
-      if (!AttrVal($hash->{NAME}, "expimpfile", "") && !$f) {
-          return "\"$opt\" needs a file as an argument or the attribute \"expimpfile\" (path and filename) to be set !";
+      my $f = ($prop && $prop !~ /MAXLINES=/)?$prop:AttrVal($name,"expimpfile","");
+      my $e = $prop1?" $prop1":"";
+      if (!$f) {
+          return "\"$opt\" needs a file as argument or the attribute \"expimpfile\" (path and filename) to be set !";
       }
-      DbRep_Main($hash,$opt,$f);
+      DbRep_Main($hash,$opt,$f.$e);
       
   } elsif ($opt eq "importFromFile" && $hash->{ROLE} ne "Agent") {
       $hash->{LASTCMD} = $prop?"$opt $prop":"$opt";
@@ -943,7 +952,7 @@ sub DbRep_Get($@) {
               }
           }           
           $i = 0;
-          foreach my $key (reverse sort(keys %hs)) {
+          foreach my $key (DbRep_sortVersion("desc",keys %hs)) {
               $val0 = $hs{$key};
               $ret .= sprintf("<td style=\"vertical-align:top\"><b>$key</b>  </td><td style=\"vertical-align:top\">$val0</td>" );
               $ret .= "</tr>";
@@ -968,7 +977,7 @@ sub DbRep_Get($@) {
           $ret .= "<tbody>";
           $ret .= "<tr class=\"even\">";
           $i = 0;
-          foreach my $key (reverse sort(keys %DbRep_vNotesExtern)) {
+          foreach my $key (DbRep_sortVersion("desc",keys %DbRep_vNotesExtern)) {
               ($val0,$val1) = split(/\s/,$DbRep_vNotesExtern{$key},2);
               $ret .= sprintf("<td style=\"vertical-align:top\"><b>$key</b>  </td><td style=\"vertical-align:top\">$val0  </td><td>$val1</td>" );
               $ret .= "</tr>";
@@ -5200,13 +5209,38 @@ sub expfile_DoParse($) {
      return "$name|''|''|$err|''|''|''";
  }
  
- $rsf        =~ s/[:\s]/_/g; 
- my $outfile =  $file?$file:AttrVal($name, "expimpfile", undef);
- $outfile    =~ s/%TSB/$rsf/g;
+ 
+ my $ml;
+ my $part = ".";
+ if($file =~ /MAXLINES=/) {
+     my ($arrayref, $hashref) = parseParams($file);
+     my @a = @{$arrayref};
+     my %h = %{$hashref};
+     $file = $a[0];
+     if(!$file) {
+         ($arrayref, undef) = parseParams(AttrVal($name,"expimpfile","")); 
+         @a = @{$arrayref};
+         $file = $a[0];       
+     }
+     $ml = $h{MAXLINES};
+     if($ml !~ /^\d+$/) {
+         undef $ml;
+     } else {
+         $part = "_part1.";
+     }
+ }
+ 
+ Log3 ($name, 4, "DbRep $name - Export data to file: $file ".($ml?"splitted to parts of $ml lines":"")  );
+ 
+ $rsf =~ s/[:\s]/_/g; 
+ my ($f,$e) = split(/\./,$file);
+ $e    = $e?$e:"";
+ $f    =~ s/%TSB/$rsf/g;
  my @t = localtime;
- $outfile = ResolveDateWildcards($outfile, @t);
- if (open(FH, ">:utf8", "$outfile")) {
-     binmode (FH) if(!$utf8);
+ $f    = ResolveDateWildcards($f, @t);
+ my $outfile = $f.$part.$e;
+ if (open(FH, ">", $outfile)) {
+     binmode (FH);
  } else {
      $err = encode_base64("could not open ".$outfile.": ".$!,"");
      return "$name|''|''|$err|''|''|''";
@@ -5225,7 +5259,8 @@ sub expfile_DoParse($) {
  
  # DB-Abfrage zeilenweise für jeden Array-Eintrag
  my $arrstr;
- my $nrows = 0;
+ my ($nrows,$frows) = (0,0);
+ my $p = 2;
  my $addon = "ORDER BY TIMESTAMP";
  no warnings 'uninitialized'; 
  foreach my $row (@ts) {
@@ -5256,10 +5291,24 @@ sub expfile_DoParse($) {
          Log3 ($name, 5, "DbRep $name -> write row:  @$row");
          # Anzahl der Datensätze
          $nrows++;
-     }
- 
+         $frows++;
+         if($ml && $frows >= $ml) {
+             Log3 ($name, 3, "DbRep $name - Number of exported datasets from $hash->{DATABASE} to file $outfile: ".$frows);
+             close(FH);
+             $outfile = $f."_part$p.".$e;
+             if (open(FH, ">", $outfile)) {
+                 binmode (FH);
+             } else {
+                 $err = encode_base64("could not open ".$outfile.": ".$!,"");
+                 return "$name|''|''|$err|''|''|''";
+             }
+             $p++;
+             $frows = 0;
+         }
+     } 
  }     
  close(FH);
+ Log3 ($name, 3, "DbRep $name - Number of exported datasets from $hash->{DATABASE} to file $outfile: ".$frows);
 
  # SQL-Laufzeit ermitteln
  my $rt = tv_interval($st);
@@ -5309,16 +5358,13 @@ sub expfile_ParseDone($) {
   
   my $ds   = $device." -- " if ($device);
   my $rds  = $reading." -- " if ($reading);
-  my $export_string = $ds.$rds." -- ROWS EXPORTED TO FILE -- ";
+  my $export_string = $ds.$rds." -- ROWS EXPORTED TO FILE(S) -- ";
   
   my $state = $erread?$erread:"done";
   readingsBeginUpdate($hash);
   ReadingsBulkUpdateValue ($hash, $export_string, $nrows); 
   ReadingsBulkUpdateTimeState($hash,$brt,$rt,$state);
   readingsEndUpdate($hash, 1);
-  
-  my $rows = $ds.$rds.$nrows;
-  Log3 ($name, 3, "DbRep $name - Number of exported datasets from $hash->{DATABASE} to file $outfile: ".$rows);
 
   delete($hash->{HELPER}{RUNNING_PID});
   
@@ -5362,8 +5408,8 @@ sub impfile_Push($) {
  $infile    =~ s/%TSB/$rsf/g;
  my @t = localtime;
  $infile = ResolveDateWildcards($infile, @t);
- if (open(FH, "<:utf8", "$infile")) {
-     binmode (FH) if(!$utf8);
+ if (open(FH, "<", "$infile")) {
+     binmode (FH);
  } else {
      $err = encode_base64("could not open ".$infile.": ".$!,"");
      return "$name|''|''|$err|''";
@@ -5558,11 +5604,30 @@ sub sqlCmd_DoParse($) {
   no warnings 'uninitialized'; 
 
   my $sql = ($cmd =~ m/\;$/)?$cmd:$cmd.";"; 
+  
+  # split SQL-Parameter Statement falls mitgegeben
+  # z.B. SET  @open:=NULL, @closed:=NULL; Select ...
+  my $set;
+  if($cmd =~ /^SET.*;/i) {
+      $cmd =~ m/^(SET.*?;)(.*)/i;
+      $set = $1;
+      $sql = $2;
+  }
+  
+  if($set) {
+      Log3($name, 4, "DbRep $name - Set SQL session variables: $set");    
+      eval {$dbh->do($set);};   # @\RB = Resetbit wenn neues Selektionsintervall beginnt
+  }
+  if ($@) {
+     $err = encode_base64($@,"");
+     Log3 ($name, 2, "DbRep $name - ERROR - $@");
+     $dbh->disconnect;
+     return "$name|''|$opt|$set|''|''|$err"; 
+  }
+  
   # Allow inplace replacement of keywords for timings (use time attribute syntax)
   $sql =~ s/§timestamp_begin§/'$runtime_string_first'/g;
   $sql =~ s/§timestamp_end§/'$runtime_string_next'/g;
-
-#  Debug "SQL :".$sql.":";
   
   Log3($name, 4, "DbRep $name - SQL execute: $sql");        
 
@@ -5576,7 +5641,6 @@ sub sqlCmd_DoParse($) {
        }; 
   
   if ($@) {
-     # error bei sql-execute
      $err = encode_base64($@,"");
      Log3 ($name, 2, "DbRep $name - ERROR - $@");
      $dbh->disconnect;
@@ -5628,7 +5692,7 @@ sub sqlCmd_DoParse($) {
 
   $rt = $rt.",".$brt;
  
-  return "$name|$rowstring|$opt|$sql|$nrows|$rt|$err";
+  return "$name|$rowstring|$opt|$cmd|$nrows|$rt|$err";
 }
 
 ####################################################################################################
@@ -8873,7 +8937,10 @@ sub DbRep_charfilter($) {
   my ($txt) = @_;
   
   # nur erwünschte Zeichen, Filtern von Steuerzeichen
-  $txt =~ tr/ A-Za-z0-9!"#$§%&'()*+,-.\/:;<=>?@[\\]^_`{|}~äöüÄÖÜß€//cd;      
+  $txt =~ s/\xb0/1degree1/g;
+  $txt =~ s/\xC2//g;
+  $txt =~ tr/ A-Za-z0-9!"#$§%&'()*+,-.\/:;<=>?@[\\]^_`{|}~äöüÄÖÜß€//cd; 
+  $txt =~ s/1degree1/°/g;  
   
 return($txt);
 }
@@ -9917,6 +9984,29 @@ sub DbRep_numval ($){
 return $val;
 }
 
+################################################################
+# sortiert eine Liste von Versionsnummern x.x.x
+# Schwartzian Transform and the GRT transform
+# Übergabe: "asc | desc",<Liste von Versionsnummern>
+################################################################
+sub DbRep_sortVersion (@){
+  my ($sseq,@versions) = @_;
+
+  my @sorted = map {$_->[0]}
+			   sort {$a->[1] cmp $b->[1]}
+			   map {[$_, pack "C*", split /\./]} @versions;
+			 
+  @sorted = map {join ".", unpack "C*", $_}
+            sort
+            map {pack "C*", split /\./} @versions;
+  
+  if($sseq eq "desc") {
+      @sorted = reverse @sorted;
+  }
+  
+return @sorted;
+}
+
 ####################################################################################################
 #     blockierende DB-Abfrage 
 #     liefert Ergebnis sofort zurück, setzt keine Readings
@@ -9952,6 +10042,27 @@ sub DbRep_dbValue($$) {
   Log3 ($name, 4, "DbRep $name - -------- New selection --------- "); 
   Log3 ($name, 4, "DbRep $name - Command: dbValue");  
   Log3 ($name, 4, "DbRep $name - SQL execute: $sql"); 
+  
+  # split SQL-Parameter Statement falls mitgegeben
+  # z.B. SET  @open:=NULL, @closed:=NULL; Select ...
+  my $set;
+  if($cmd =~ /^SET.*;/i) {
+      $cmd =~ m/^(SET.*?;)(.*)/i;
+      $set = $1;
+      $sql = $2;
+  }
+  
+  if($set) {
+      Log3($name, 4, "DbRep $name - Set SQL session variables: $set");    
+      eval {$dbh->do($set);};   # @\RB = Resetbit wenn neues Selektionsintervall beginnt
+  }
+  if ($@) {
+     $err = $@;
+     Log3 ($name, 2, "DbRep $name - $err");
+     ReadingsSingleUpdateValue ($hash, "errortext", $err, 1);
+     ReadingsSingleUpdateValue ($hash, "state", "error", 1);
+     return ($err);  
+  } 
 
   # SQL-Startzeit
   my $st = [gettimeofday];  
@@ -10890,13 +11001,18 @@ return;
                                  contained in exception list defined by attribute "readingPreventFromDel".                                
                                  </li><br>
 								 
-    <li><b> exportToFile [&lt;file&gt;] </b> 
-                                 -  exports DB-entries to a file in CSV-format of time period specified by time attributes. <br>
-                                 Limitation of selections can be done by <a href="#DbRepattr">attributes</a> device and/or 
-                                 reading. 
+    <li><b> exportToFile [&lt;/path/file&gt;] [MAXLINES=&lt;lines&gt;]</b> 
+                                 -  exports DB-entries to a file in CSV-format of time period specified by time attributes. <br><br>
+                                 
                                  The filename can be defined by <a href="#DbRepattr">attribute</a> "expimpfile". <br>
                                  Optionally a file can be specified as a command option (/path/file) and overloads a possibly  
-                                 defined attribute "expimpfile". The filename may contain wildcards as described
+                                 defined attribute "expimpfile".
+                                 The maximum number of datasets which are exported into one file can be specified 
+                                 with the optional parameter "MAXLINES". In this case several files with extensions
+                                 "_part1", "_part2", "_part3" and so on are created (pls. remember it when you import the files !). <br>
+                                 Limitation of selections can be done by <a href="#DbRepattr">attributes</a> device and/or 
+                                 reading. 
+                                 The filename may contain wildcards as described
                                  in attribute section of "expimpfile".
                                  <br>
                                  By setting attribute "aggregation" the export of datasets will be splitted into time slices 
@@ -11293,6 +11409,8 @@ return;
 								 "allowDeletion" has to be set for security reason. <br>
                                  The statement doesn't consider limitations by attributes "device", "reading", "time.*" 
                                  respectively "aggregation". <br>
+                                 This command also accept the setting of SQL session variables like "SET @open:=NULL, 
+                                 @closed:=NULL;". <br>
 								 If the <a href="#DbRepattr">attribute</a> "timestamp_begin" respectively "timestamp_end" 
 								 is assumed in the statement, it is possible to use placeholder "<b>§timestamp_begin§</b>" respectively
 								 "<b>§timestamp_end§</b>" on suitable place. <br><br>
@@ -11315,6 +11433,25 @@ return;
                                  <li>set &lt;name&gt; sqlCmd update history set TIMESTAMP=TIMESTAMP,VALUE='Val' WHERE VALUE='TestValue' </li>
                                  <li>set &lt;name&gt; sqlCmd select * from history where DEVICE = "Test" </li>
                                  <li>set &lt;name&gt; sqlCmd insert into history (TIMESTAMP, DEVICE, TYPE, EVENT, READING, VALUE, UNIT) VALUES ('2017-05-09 17:00:14','Test','manuell','manuell','Tes§e','TestValue','°C') </li>    
+                                 </ul>
+                                 <br>
+                                 
+                                 Here you can see an example of a more complex statement (MySQL) with setting SQL session 
+                                 variables: <br><br>
+                                 
+                                 <ul>
+                                 <li>set &lt;name&gt; sqlCmd SET @open:=NULL, @closed:=NULL;
+                                        SELECT
+                                            TIMESTAMP, VALUE,DEVICE,
+                                            @open AS open,
+                                            @open := IF(VALUE = 'open', TIMESTAMP, NULL) AS curr_open,
+                                            @closed  := IF(VALUE = 'closed',  TIMESTAMP, NULL) AS closed
+                                        FROM history WHERE
+                                           DATE(TIMESTAMP) = CURDATE() AND
+                                           DEVICE = "HT_Fensterkontakt" AND
+                                           READING = "state" AND
+                                           (VALUE = "open" OR VALUE = "closed")
+                                           ORDER BY  TIMESTAMP; </li>
                                  </ul>
 								 <br>
 								 
@@ -11530,6 +11667,8 @@ return;
                             Executes the specified SQL-statement in <b>blocking</b> manner. Because of its mode of operation
                             this function is particular convenient for user own perl scripts.  <br>
                             The input accepts multi line commands and delivers multi line results as well. 
+                            This command also accept the setting of SQL session variables like "SET @open:=NULL, 
+                            @closed:=NULL;". <br>
                             If several fields are selected and passed back, the fieds are separated by the separator defined  
                             by <a href="#DbRepattr">attribute</a> "sqlResultFieldSep" (default "|"). Several result lines 
                             are separated by newline ("\n"). <br>
@@ -11840,8 +11979,12 @@ sub bdump {
 </li>
 
   <a name="expimpfile"></a>
-  <li><b>expimpfile </b>      - Path/filename for data export/import. <br><br>
+  <li><b>expimpfile &lt;/path/file&gt; [MAXLINES=&lt;lines&gt;] </b>      
+                                - Path/filename for data export/import. <br><br>
    
+                                The maximum number of datasets which are exported into one file can be specified 
+                                with the optional parameter "MAXLINES". In this case several files with extensions
+                                "_part1", "_part2", "_part3" and so on are created. <br>
                                 The filename may contain wildcards which are replaced by corresponding values 
                                 (see subsequent table).
                                 Furthermore filename can contain %-wildcards of the POSIX strftime function of the underlying OS (see your 
@@ -13182,12 +13325,17 @@ sub bdump {
                                  Ausnahmeliste definiert mit Attribut "readingPreventFromDel" enthalten sind.                                
                                  </li><br>
                                  
-    <li><b> exportToFile [&lt;File&gt;] </b> 
-                                 -  exportiert DB-Einträge im CSV-Format in den gegebenen Zeitgrenzen. <br>
+    <li><b> exportToFile [&lt;/Pfad/File&gt;] [MAXLINES=&lt;lines&gt;] </b> 
+                                 -  exportiert DB-Einträge im CSV-Format in den gegebenen Zeitgrenzen. <br><br>
+                                 
+                                 Der Dateiname wird durch das <a href="#DbRepattr">Attribut</a> "expimpfile" bestimmt. 
+                                 Alternativ kann "/Pfad/File" als Kommando-Option angegeben werden und übersteuert ein 
+                                 eventuell gesetztes Attribut "expimpfile". Optional kann über den Parameter "MAXLINES" die 
+                                 maximale Anzahl von Datensätzen angegeben werden, die in ein File exportiert werden. 
+                                 In diesem Fall werden mehrere Files mit den Extensions "_part1", "_part2", "_part3" usw. 
+                                 erstellt (beim Import berücksichtigen !). <br><br>
                                  Einschränkungen durch die <a href="#DbRepattr">Attribute</a> "device" bzw. "reading" gehen in die Selektion mit ein.
-                                 Der Dateiname wird durch das <a href="#DbRepattr">Attribut</a> "expimpfile" bestimmt. <br>
-                                 Alternativ kann die Datei (/Pfad/Datei) als Kommando-Option angegeben werden und übersteuert ein 
-                                 eventuell gesetztes Attribut "expimpfile". Der Dateiname kann Wildcards enthalten (siehe Attribut "expimpfile").
+                                 Der Dateiname kann Wildcards enthalten (siehe Attribut "expimpfile").
                                  <br>
                                  Durch das Attribut "aggregation" wird der Export der Datensätze in Zeitscheiben der angegebenen Aggregation 
                                  vorgenommen. Ist z.B. "aggregation = month" gesetzt, werden die Daten in monatlichen Paketen selektiert und in
@@ -13603,6 +13751,8 @@ sub bdump {
 								 <a href="#DbRepattr">Attribut</a> "allowDeletion" gesetzt sein. <br>
                                  Bei der Ausführung dieses Kommandos werden keine Einschränkungen durch gesetzte Attribute
                                  "device", "reading", "time.*" bzw. "aggregation" berücksichtigt. <br>
+                                 Dieses Kommando akzeptiert ebenfalls das Setzen von SQL Session Variablen wie z.B.
+                                 "SET @open:=NULL, @closed:=NULL;". <br>
 								 Sollen die im Modul gesetzten <a href="#DbRepattr">Attribute</a> "timestamp_begin" bzw. 
 								 "timestamp_end" im Statement berücksichtigt werden, können die Platzhalter 
 								 "<b>§timestamp_begin§</b>" bzw. "<b>§timestamp_end§</b>" dafür verwendet werden. <br><br>
@@ -13626,7 +13776,26 @@ sub bdump {
                                  <li>set &lt;name&gt; sqlCmd select * from history where DEVICE = "Test" </li>
                                  <li>set &lt;name&gt; sqlCmd insert into history (TIMESTAMP, DEVICE, TYPE, EVENT, READING, VALUE, UNIT) VALUES ('2017-05-09 17:00:14','Test','manuell','manuell','Tes§e','TestValue','°C') </li>    
                                  </ul>
-								 <br>
+                                 <br>
+                                 
+                                 Nachfolgend noch ein Beispiel für ein komplexeres Statement (MySQL) unter Mitgabe von
+                                 SQL Session Variablen: <br><br>
+                                 
+                                 <ul>
+                                 <li>set &lt;name&gt; sqlCmd SET @open:=NULL, @closed:=NULL;
+                                        SELECT
+                                            TIMESTAMP, VALUE,DEVICE,
+                                            @open AS open,
+                                            @open := IF(VALUE = 'open', TIMESTAMP, NULL) AS curr_open,
+                                            @closed  := IF(VALUE = 'closed',  TIMESTAMP, NULL) AS closed
+                                        FROM history WHERE
+                                           DATE(TIMESTAMP) = CURDATE() AND
+                                           DEVICE = "HT_Fensterkontakt" AND
+                                           READING = "state" AND
+                                           (VALUE = "open" OR VALUE = "closed")
+                                           ORDER BY  TIMESTAMP; </li>
+                                 </ul>
+								 <br>                                 
 								 
 								 Das Ergebnis des Statements wird im <a href="#DbRepReadings">Reading</a> "SqlResult" dargestellt.
 								 Die Ergebnis-Formatierung kann durch das <a href="#DbRepattr">Attribut</a> "sqlResultFormat" ausgewählt, sowie der verwendete
@@ -13847,7 +14016,9 @@ sub bdump {
     <li><b> dbValue &lt;SQL-Statement&gt;</b> - 
                             Führt das angegebene SQL-Statement <b>blockierend</b> aus. Diese Funktion ist durch ihre Arbeitsweise 
                             speziell für den Einsatz in benutzerspezifischen Scripten geeignet. <br>
-                            Die Eingabe akzeptiert Mehrzeiler und gibt ebenso mehrzeilige Ergebisse zurück. 
+                            Die Eingabe akzeptiert Mehrzeiler und gibt ebenso mehrzeilige Ergebisse zurück.
+                            Dieses Kommando akzeptiert ebenfalls das Setzen von SQL Session Variablen wie z.B.
+                            "SET @open:=NULL, @closed:=NULL;". <br>                            
                             Werden mehrere Felder selektiert und zurückgegeben, erfolgt die Feldtrennung mit dem Trenner 
                             des <a href="#DbRepattr">Attributes</a> "sqlResultFieldSep" (default "|"). Mehrere Ergebniszeilen 
                             werden mit Newline ("\n") separiert. <br>
@@ -14153,8 +14324,12 @@ sub bdump {
 </li>
   
   <a name="expimpfile"></a>
-  <li><b>expimpfile </b>      - Pfad/Dateiname für Export/Import in/aus einem File.  <br><br>
-  
+  <li><b>expimpfile &lt;/Pfad/Filename&gt; [MAXLINES=&lt;lines&gt;]</b>      
+                                - Pfad/Dateiname für Export/Import in/aus einem File.  <br><br>
+                                
+                                Optional kann über den Parameter "MAXLINES" die maximale Anzahl von Datensätzen angegeben
+                                werden, die in ein File exportiert werden. In diesem Fall werden mehrere Files mit den
+                                Extensions "_part1", "_part2", "_part3" usw. erstellt. <br>
                                 Der Dateiname kann Platzhalter enthalten die gemäß der nachfolgenden Tabelle ersetzt werden.
                                 Weiterhin können %-wildcards der POSIX strftime-Funktion des darunterliegenden OS enthalten 
                                 sein (siehe auch strftime Beschreibung). <br>

@@ -68,6 +68,7 @@
       <a href="#setdefaultattr">setdefaultattr</a> &nbsp; <!-- definiert ein "default" Attribut -->
       <a href="#setreading">setreading</a> &nbsp; <!-- setzt ein Reading f&uuml;r ein FHEM Ger&auml;t -->
       <a href="#setstate">setstate</a> &nbsp; <!-- setzt den Status eines  FHEM Ger&aumles -->
+      <a href="#setuuid">setuuid</a> &nbsp; <!-- setzt den internen FUUID Wert -->
       <a href="#shutdown">shutdown</a> &nbsp; <!-- beendet FHEM -->
       <a href="#sleep">sleep</a> &nbsp;     <!-- verz&ouml;gerte Ausf&uuml;hrung -->
       <a href="#trigger">trigger</a> &nbsp; <!-- generiert ein FHEM Event -->
@@ -1380,6 +1381,16 @@ Die folgenden lokalen Attribute werden von mehreren Ger&auml;ten verwendet:
 <!-- setstate end -->
 
 
+<a name="setuuid"></a>
+<h3>setuuid</h3>
+<ul>
+  <code>setuuid &lt;device&gt; &lt;uuid&gt;</code>
+  <br><br>
+  Systembefehl, um den FUUID internen Wert zu setzen.
+  Ist nicht vom Benutzer zu verwenden.
+</ul>
+<!-- setstate end -->
+
 <a name="shutdown"></a>
 <h3>shutdown</h3>
 <ul>
@@ -1474,6 +1485,11 @@ Die folgenden lokalen Attribute werden von mehreren Ger&auml;ten verwendet:
 
   <b>Attributes</b>
   <ul>
+    <a name="altitude"></a>
+    <li>altitude<br>
+       H&ouml;he in Metern &uuml;ber dem Meeresspiegel, Voreinstellung ist 0.
+    </li><br>
+
     <li><a href="#archivedir">archivedir</a></li>
     <li><a href="#archivecmd">archivecmd</a></li>
     <li><a href="#nrarchive">nrarchive</a></li>
@@ -1620,6 +1636,18 @@ Die folgenden lokalen Attribute werden von mehreren Ger&auml;ten verwendet:
         dessen Wert an FHEM/FhemUtils/ angeh&auml;ngt wird.
     </li><br>
 
+    <a name="latitude"></a>
+    <li>latitude<br>
+        Geographische Breite in Dezimalgrad, Voreinstellung ist 50.112,
+        Frankfurt am Main.
+    </li><br>
+
+    <a name="longitude"></a>
+    <li>longitude<br>
+        Geographische L&auml;nge in Dezimalgrad, Voreinstellung ist 8.686,
+        Frankfurt am Main.
+    </li><br>
+
     <a name="logdir"></a>
     <li>logdir<br>
         Falls gesetzt, wird %L in dem logfile Attribut (oder in der Dateinamen 
@@ -1640,6 +1668,13 @@ Die folgenden lokalen Attribute werden von mehreren Ger&auml;ten verwendet:
         <code>global</code> Ger&auml;t hinzu wie Sie es auch bei einem FileLog
         device tun k&ouml;nnten.<br> Sie k&ouml;nnen den Namen der Logdatei
         mit&nbsp; <code>{ $currlogfile }festlegen</code>.
+    </li><br>
+
+    <a name="maxShutdownDelay"></a>
+    <li>maxShutdownDelay<br>
+        Einige Module ben&ouml;tigen Zeit zum Aufr&auml;umen beim shutdown,
+        aber FHEM begrenzt diese Zeit auf 10 Sekunden. Mit diesem Attribut
+        kann man sie anpassen.
     </li><br>
 
     <a name="modpath"></a>

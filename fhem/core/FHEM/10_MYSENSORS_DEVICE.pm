@@ -20,7 +20,7 @@
 #     You should have received a copy of the GNU General Public License
 #     along with fhem.  If not, see <http://www.gnu.org/licenses/>.
 #
-# $Id: 10_MYSENSORS_DEVICE.pm 18131 2019-01-04 11:58:28Z Beta-User $
+# $Id: 10_MYSENSORS_DEVICE.pm 18443 2019-01-29 06:40:22Z Beta-User $
 #
 ##############################################
 
@@ -70,7 +70,8 @@ use Device::MySensors::Message qw(:all);
 use SetExtensions qw/ :all /;
 
 BEGIN {
-  MYSENSORS->import(qw(:all));
+    main::LoadModule("MYSENSORS");
+    MYSENSORS->import(qw(:all));
 
   GP_Import(qw(
     AttrVal
@@ -244,7 +245,7 @@ sub Set($@) {
     my ($hash,$name,$command,@values) = @_;
     return "Need at least one parameters" unless defined $command;
     if(!defined($hash->{sets}->{$command})) {
-      $hash->{sets}->{fwType} = join(",", getFirmwareTypes($hash->{IODev}));
+      $hash->{sets}->{fwType} = join(",", MYSENSORS::getFirmwareTypes($hash->{IODev}));
       my $list = join(" ", map {$hash->{sets}->{$_} ne "" ? "$_:$hash->{sets}->{$_}" : $_} sort keys %{$hash->{sets}});
       $hash->{sets}->{fwType} = "";
       return grep (/(^on$)|(^off$)/,keys %{$hash->{sets}}) == 2 ? SetExtensions($hash, $list, $name, $command, @values) : "Unknown argument $command, choose one of $list";
@@ -414,6 +415,7 @@ sub onStreamMessage($$) {
           if (defined $hash->{OTA_Chan76_IODev}) {
             sendMessage($hash->{OTA_Chan76_IODev}, radioId => $hash->{radioId}, childId => 255, ack => 0, cmd => C_STREAM, subType => ST_FIRMWARE_RESPONSE, payload => $payload);
           } else {
+            $hash->{nowSleeping} = 0 if $hash->{nowSleeping};
             sendClientMessage($hash, childId => 255, cmd => C_STREAM, ack => 0, subType => ST_FIRMWARE_RESPONSE, payload => $payload);
           }
           readingsSingleUpdate($hash, "state", "updating", 1) unless ($hash->{STATE} eq "updating");
@@ -686,6 +688,7 @@ sub onRequestMessage($$) {
     my ($hash,$msg) = @_;
     eval {
       my ($readingname,$val) = rawToMappedReading($hash, $msg->{subType}, $msg->{childId}, $msg->{payload});
+      $hash->{nowSleeping} = 0 if $hash->{nowSleeping};
       sendClientMessage($hash,
         childId => $msg->{childId},
         cmd => C_SET,
@@ -715,6 +718,7 @@ sub onInternalMessage($$) {
         if ($msg->{ack}) {
           Log3 ($name, 4, "MYSENSORS_DEVICE $name: response to time-request acknowledged");
         } else {
+          $hash->{nowSleeping} = 0 if $hash->{nowSleeping};
           sendClientMessage($hash,cmd => C_INTERNAL, childId => 255, subType => I_TIME, payload => time);
           Log3 ($name, 4, "MYSENSORS_DEVICE $name: update of time requested");
         }
@@ -741,6 +745,7 @@ sub onInternalMessage($$) {
           Log3 ($name, 4, "MYSENSORS_DEVICE $name: response to config-request acknowledged");
         } else {
           readingsSingleUpdate($hash, "parentId", $msg->{payload}, 1);
+          $hash->{nowSleeping} = 0 if $hash->{nowSleeping};
           sendClientMessage($hash,cmd => C_INTERNAL, ack => 0, childId => 255, subType => I_CONFIG, payload => AttrVal($name,"config","M"));
           Log3 ($name, 4, "MYSENSORS_DEVICE $name: respond to config-request, node parentId = " . $msg->{payload});
         }
@@ -764,11 +769,10 @@ sub onInternalMessage($$) {
         last;
     };
     $type == I_SKETCH_NAME and do {
-        #$hash->{$typeStr} = $msg->{payload};
         readingsSingleUpdate($hash, "state", "received presentation", 1) unless ($hash->{STATE} eq "received presentation");
         readingsSingleUpdate($hash, "SKETCH_NAME", $msg->{payload}, 1);
-        #undef $hash->{FW_DATA}; # enable this to free memory?
         delete $hash->{FW_DATA} if (defined $hash->{FW_DATA});
+        $hash->{nowSleeping} = 0 if $hash->{nowSleeping};
         if (defined $hash->{getCommentReadings}){
           if ($hash->{getCommentReadings} eq "1") {
             $hash->{getCommentReadings} = 2 ;
@@ -776,6 +780,7 @@ sub onInternalMessage($$) {
             delete $hash->{getCommentReadings};
           }
         }
+        Log3 $name, 5, "leaving Sketch Name update";
         last;
     };
     $type == I_SKETCH_VERSION and do {
@@ -895,7 +900,6 @@ sub onInternalMessage($$) {
         #$hash->{$typeStr} = $msg->{payload};
         refreshInternalMySTimer($hash,"Asleep");
         refreshInternalMySTimer($hash,"Alive") if $hash->{timeoutAlive};
-        #here we send out retained and outstanding messages
         MYSENSORS::Timer($hash);
         my $retainedMsg;
         while (ref ($retainedMsg = shift @{$hash->{retainedMessagesForRadioId}->{messages}}) eq 'HASH') {
@@ -925,7 +929,7 @@ sub sendClientMessage($%) {
       Log3 ($name,5,"$name is not sleeping, sending message!");
       $hash->{retainedMessages}=scalar(@$messages) if (defined $hash->{retainedMessages});
     } else {
-      Log3 ($name,5,"$name is sleeping, enqueueing message! ");
+      Log3 ($name,5,"$name is sleeping, enqueing message! ");
       #write to queue if node is asleep
       unless (defined $hash->{retainedMessages}) {
         $messages = {messages => [%msg]};
@@ -1069,7 +1073,7 @@ sub flashFirmware($$) {
     } else {
         return "Nothing todo - latest firmware already installed";
     }
-    }
+  }
 }
 
 sub refreshInternalMySTimer($$) {
@@ -1088,7 +1092,7 @@ sub refreshInternalMySTimer($$) {
       RemoveInternalTimer("timeoutAck:$name");
       my $nextTrigger = main::gettimeofday() + $hash->{timeoutAck};
       InternalTimer($nextTrigger, "MYSENSORS::DEVICE::timeoutMySTimer", "timeoutAck:$name", 0);
-      Log3 $name, 4, "$name: Ack timeout timer set at $nextTrigger";
+      Log3 $name, 5, "$name: Ack timeout timer set at $nextTrigger";
     } elsif ($calltype eq "Asleep") {
       RemoveInternalTimer("timeoutAwake:$name");
       #0.5 is default; could be dynamized by attribute if needed

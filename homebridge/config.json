@@ -1,0 +1,30 @@
+ {
+    "bridge": {
+        "name": "Homebridge",
+        "username": "CC:22:3D:E3:CE:30",
+        "port": 51826,
+        "pin": "012-34-567"
+    },
+
+   "platforms": [{
+			"platform": "FHEM",
+			"name": "FHEM",
+			"server": "127.0.0.1",
+			"port": "8083",
+			"auth": {
+				"user": "admin",
+				"pass": "1LOg2810AGBLmT2fn"
+			},
+			"filter": "room=Homekit"
+		}
+],
+
+	"accessories": [{
+		"accessory": "XiaomiRoborockVacuum",
+		"name": "Xiaomi Mi Robot Vaccum 1st Generation",
+		"ip": "192.168.1.31",
+		"token": "6b6173464d4e4e7357556d6d4b693853",
+		"pause": true,
+		"dock": true
+	}]
+}

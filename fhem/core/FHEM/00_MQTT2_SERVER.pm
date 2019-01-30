@@ -1,5 +1,5 @@
 ##############################################
-# $Id: 00_MQTT2_SERVER.pm 17953 2018-12-11 14:44:34Z rudolfkoenig $
+# $Id: 00_MQTT2_SERVER.pm 18440 2019-01-28 10:23:20Z rudolfkoenig $
 package main;
 
 # TODO: test SSL
@@ -44,6 +44,7 @@ MQTT2_SERVER_Initialize($)
     disable:0,1
     disabledForIntervals
     keepaliveFactor
+    rePublish
     rawEvents
     sslVersion
     sslCertPrefix
@@ -392,36 +393,41 @@ MQTT2_SERVER_Read($@)
 
 ######################################
 # Call sendto for all clients + Dispatch + dotrigger if rawEvents is set
-# tgt is the "accept" server, src is the connection generating the data
+# server is the "accept" server, src is the connection generating the data
 sub
 MQTT2_SERVER_doPublish($$$$;$)
 {
-  my ($src, $tgt, $tp, $val, $retain) = @_;
+  my ($src, $server, $tp, $val, $retain) = @_;
   $val = "" if(!defined($val));
-  $src = $tgt if(!defined($src));
+  $src = $server if(!defined($src));
 
   if($retain) {
     my $now = gettimeofday();
     my %h = ( ts=>$now, val=>$val );
-    $tgt->{retain}{$tp} = \%h;
+    $server->{retain}{$tp} = \%h;
 
     # Save it
-    my %nots = map { $_ => $tgt->{retain}{$_}{val} } keys %{$tgt->{retain}};
-    setReadingsVal($tgt, "RETAIN", toJSON(\%nots), FmtDateTime(gettimeofday()));
+    my %nots = map { $_ => $server->{retain}{$_}{val} }
+               keys %{$server->{retain}};
+    setReadingsVal($server,"RETAIN",toJSON(\%nots),FmtDateTime(gettimeofday()));
   }
 
-  foreach my $clName (keys %{$tgt->{clients}}) {
-    MQTT2_SERVER_sendto($tgt, $defs{$clName}, $tp, $val)
+  foreach my $clName (keys %{$server->{clients}}) {
+    MQTT2_SERVER_sendto($server, $defs{$clName}, $tp, $val)
         if($src->{NAME} ne $clName);
   }
 
-  if(defined($src->{cid})) { # "real" MQTT client
-    my $cid = $src->{cid};
+  my $serverName = $server->{NAME};
+  my $cid = $src->{cid};
+  $tp =~ s/:/_/g; # 96608
+  if(defined($cid) ||                    # "real" MQTT client
+     AttrVal($serverName, "rePublish", undef)) {
+    $cid = $src->{NAME} if(!defined($cid));
     $cid =~ s,[^a-z0-9._],_,gi;
-    my $ac = AttrVal($tgt->{NAME}, "autocreate", 1) ? "autocreate:":"";
-    Dispatch($tgt, "$ac$cid:$tp:$val", undef, !$ac);
-    my $re = AttrVal($tgt->{NAME}, "rawEvents", undef);
-    DoTrigger($tgt->{NAME}, "$tp:$val") if($re && $tp =~ m/$re/);
+    my $ac = AttrVal($serverName, "autocreate", 1) ? "autocreate:":"";
+    Dispatch($server, "$ac$cid:$tp:$val", undef, !$ac);
+    my $re = AttrVal($serverName, "rawEvents", undef);
+    DoTrigger($server->{NAME}, "$tp:$val") if($re && $tp =~ m/$re/);
   }
 }
 
@@ -476,6 +482,7 @@ MQTT2_SERVER_Write($$$)
   } else {
     Log3 $name, 1, "$name: ERROR: Ignoring function $function";
   }
+  return undef;
 }
 
 sub
@@ -578,12 +585,6 @@ MQTT2_SERVER_getStr($$)
       messages, but not forward them.
       </li><br>
 
-    <a name="rawEvents"></a>
-    <li>rawEvents &lt;topic-regexp&gt;<br>
-      Send all messages as events attributed to this MQTT2_SERVER instance.
-      Should only be used, if there is no MQTT2_DEVICE to process the topic.
-      </li><br>
-
     <a name="keepaliveFactor"></a>
     <li>keepaliveFactor<br>
       the oasis spec requires a disconnect, if after 1.5 times the client
@@ -596,6 +597,20 @@ MQTT2_SERVER_getStr($$)
       </ul>
       </li>
     
+    <a name="rawEvents"></a>
+    <li>rawEvents &lt;topic-regexp&gt;<br>
+      Send all messages as events attributed to this MQTT2_SERVER instance.
+      Should only be used, if there is no MQTT2_DEVICE to process the topic.
+      </li><br>
+
+    <a name="rePublish"></a>
+    <li>rePublish<br>
+      if a topic is published from a source inside of FHEM (e.g. MQTT2_DEVICE),
+      it is only sent to real MQTT clients, and it will not internally
+      republished. By setting this attribute the topic will also be dispatched
+      to the FHEM internal clients.
+      </li><br>
+
     <a name="SSL"></a>
     <li>SSL<br>
       Enable SSL (i.e. TLS)

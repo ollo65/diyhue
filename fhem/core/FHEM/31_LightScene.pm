@@ -1,5 +1,5 @@
 
-# $Id: 31_LightScene.pm 17952 2018-12-11 09:50:16Z justme1968 $
+# $Id: 31_LightScene.pm 18448 2019-01-29 16:00:54Z justme1968 $
 
 package main;
 
@@ -269,10 +269,17 @@ LightScene_Notify($$)
       my $reading = shift @parts;
       my $value   = join(": ", @parts);
 
-      next if( $value ne "" );
+      #see: https://forum.fhem.de/index.php/topic,33223.msg895357.html#msg895357
+      #next if( $value ne "" );
+      #$reading = "state";
+      #$value = $s;
 
-      $reading = "state";
-      $value = $s;
+      $reading = "" if( !defined($reading) );
+      $value = "" if( !defined($value) );
+      if( $value eq "" ) {
+        $reading = "state";
+        $value = $s;
+      }
 
       if( $hash->{mayBeVisible} || $hash->{followDevices} ) {
         my $room = AttrVal($name, "room", "");

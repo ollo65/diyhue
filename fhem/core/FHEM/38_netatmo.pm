@@ -1,9 +1,9 @@
 ##############################################################################
-# $Id: 38_netatmo.pm 17678 2018-11-05 01:56:01Z moises $
+# $Id: 38_netatmo.pm 18406 2019-01-24 23:47:47Z moises $
 #
 #  38_netatmo.pm
 #
-#  2018 Markus Moises < vorname at nachname . de >
+#  2019 Markus Moises < vorname at nachname . de >
 #
 #  Based on original code by justme1968
 #
@@ -11,7 +11,7 @@
 #
 #
 ##############################################################################
-# Release 23 / 2018-11-03
+# Release 24 / 2019-01-05
 
 package main;
 
@@ -592,6 +592,7 @@ netatmo_Set($$@)
   $list = "clear:noArg webhook:add,drop" if ($hash->{SUBTYPE} eq "WEBHOOK");
 
   return undef if( $list eq "" );
+  $cmd = "(undefined)" if(!defined($cmd));
 
   if( $cmd eq "autocreate" ) {
     return netatmo_autocreate($hash, 1 );
@@ -1702,6 +1703,10 @@ netatmo_getDeviceDetail($$)
   foreach my $device (@{$hash->{helper}{homecoachs}}) {
     return $device if( $device->{_id} eq $id );
   }
+
+  Log3 $name, 4, "$name getDeviceDetail not found";
+  netatmo_getDevices($hash,1);
+  netatmo_getHomecoachs($hash,1);
 
   return undef;
 }
@@ -5488,7 +5493,7 @@ netatmo_parseAddress($$)
   Log3 $name, 4, "$name: parseAddress";
   
   if( $json ) {
-    Log3 $name, 2, "$name: ".Dumper($json);
+    Log3 $name, 5, "$name: ".Dumper($json);
     #$hash->{status} = $json->{status};
     #$hash->{status} = $json->{error}{message} if( $json->{error} );
     if( defined($json) ) {
@@ -6464,7 +6469,7 @@ sub netatmo_weatherIcon()
   <b>Define</b>
   <ul>
     <code>define &lt;name&gt; netatmo [ACCOUNT] &lt;username&gt; &lt;password&gt; &lt;client_id&gt; &lt;client_secret&gt;</code><br>
-    <code>define &lt;name&gt; netatmo &lt;device&gt;</code><br>
+    <code>define &lt;name&gt; netatmo &lt;device&gt;</code> (you should use autocreate from the account device!)<br>
     <br>
 
     Defines a netatmo device.<br><br>
@@ -6475,24 +6480,43 @@ sub netatmo_weatherIcon()
     Examples:
     <ul>
       <code>define netatmo netatmo ACCOUNT abc@test.com myPassword 2134123412399119d4123134 AkqcOIHqrasfdaLKcYgZasd987123asd</code><br>
-      <code>define netatmo netatmo 2f:13:2b:93:12:31</code><br>
-      <code>define netatmo netatmo MODULE  2f:13:2b:93:12:31 f1:32:b9:31:23:11</code><br>
-      <code>define netatmo netatmo HOME 1234567890abcdef12345678</code><br>
-      <code>define netatmo netatmo CAMERA 1234567890abcdef12345678 70:ee:12:34:56:78</code><br>
-      <code>define netatmo netatmo PERSON 1234567890abcdef12345678 01234567-89ab-cdef-0123-456789abcdef</code><br>
+      <code>define netatmo_station netatmo 2f:13:2b:93:12:31</code><br>
+      <code>define netatmo_module netatmo MODULE  2f:13:2b:93:12:31 f1:32:b9:31:23:11</code><br>
+      <code>define netatmo_publicstation netatmo PUBLIC 70:ee:50:27:2c:9c 02:00:00:27:4a:a6 temperature,humidity 70:ee:50:27:2c:9c pressure 05:00:00:04:cc:42 rain 06:00:00:01:ae:94 windstrength,windangle,guststrength,gustangle</code><br>
+      <code>define netatmo_maparea netatmo PUBLIC 47.8941876,16.64446 0.08</code><br>
+      <code>define netatmo_forecast netatmo FORECAST 2f:13:2b:93:12:31</code><br>
+      <code>define netatmo_relay netatmo RELAY 70:ee:50:00:12:34</code><br>
+      <code>define netatmo_thermostat netatmo THERMOSTAT 70:ee:50:00:12:34 04:00:00:0a:00:11</code><br>
+      <code>define netatmo_home netatmo HOME 1234567890abcdef12345678</code><br>
+      <code>define netatmo_camera netatmo CAMERA 1234567890abcdef12345678 70:ee:12:34:56:78</code><br>
+      <code>define netatmo_tag netatmo TAG 70:ee:12:34:56:78 70:ee:50:11:22:33</code><br>
+      <code>define netatmo_person netatmo PERSON 1234567890abcdef12345678 01234567-89ab-cdef-0123-456789abcdef</code><br>
+      <code>define netatmo_webhook netatmo WEBHOOK</code><br>
     </ul>
   </ul><br>
 
   <a name="netatmo_Webhook"></a>
   <b>Webhook</b><br>
   <ul>
-    <code>define netatmo netatmo WEBHOOK</code><br><br>
-    Set your URL in attribute webhookURL, events from cameras will be received insantly
+    <code>define &lt;name&gt; netatmo WEBHOOK</code><br><br>
+    Set your URL in attribute webhookURL, events from cameras will be received instantly
   </ul><br>
 
   <a name="netatmo_Readings"></a>
   <b>Readings</b>
   <ul>
+  <li>temperature</li>
+  <li>humidity</li>
+  <li>pressure</li>
+  <li>co2</li>
+  <li>noise</li>
+  <li>rain</li>
+  <li>rain_hour</li>
+  <li>rain_day</li>
+  <li>windstrength</li>
+  <li>windangle</li>
+  <li>guststrength</li>
+  <li>gustangle</li>
   </ul><br>
 
   <a name="netatmo_Set"></a>
@@ -6563,21 +6587,21 @@ sub netatmo_weatherIcon()
   <a name="netatmo_Attr"></a>
   <b>Attributes</b>
   <ul>
-    <li>interval<br>
-      the interval in seconds used to check for new values.</li>
-    <li>disable<br>
+    <li><a name="interval">interval</a><br>
+      the interval in seconds used to check for new data</li>
+    <li><a name="disable">disable</a><br>
       1 -> stop polling</li>
-    <li>addresslimit<br>
+    <li><a name="addresslimit">addresslimit</a><br>
       maximum number of addresses to resolve in public station searches (ACCOUNT - default: 10)</li>
-    <li>setpoint_duration<br>
+    <li><a name="setpoint_duration">setpoint_duration</a><br>
       setpoint duration in minutes (THERMOSTAT - default: 60)</li>
-    <li>videoquality<br>
+    <li><a name="videoquality">videoquality</a><br>
       video quality for playlists (HOME - default: medium)</li>
-    <li>webhookURL<br>
+    <li><a name="webhookURL">webhookURL</a><br>
       webhook URL - can include basic auth and ports: http://user:pass@your.url:8080/fhem/netatmo (WEBHOOK)</li>
-    <li>webhookPoll<br>
+    <li><a name="webhookPoll">webhookPoll</a><br>
       poll home after event from webhook (WEBHOOK - default: 0)</li>
-    <li>ignored_device_ids<br>
+    <li><a name="ignored_device_ids">ignored_device_ids</a><br>
       ids of devices/persons ignored on autocrate (ACCOUNT - comma separated)</li>
   </ul>
 </ul>

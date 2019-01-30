@@ -1,5 +1,5 @@
 ##############################################
-# $Id: 01_FHEMWEB.pm 18111 2019-01-01 14:41:21Z rudolfkoenig $
+# $Id: 01_FHEMWEB.pm 18383 2019-01-22 18:45:50Z rudolfkoenig $
 package main;
 
 use strict;
@@ -15,6 +15,7 @@ sub FW_IconURL($);
 sub FW_addContent(;$);
 sub FW_addToWritebuffer($$@);
 sub FW_answerCall($);
+sub FW_confFiles($);
 sub FW_dev2image($;$);
 sub FW_devState($$@);
 sub FW_digestCgi($);
@@ -56,6 +57,7 @@ use vars qw($FW_dir);     # base directory for web server
 use vars qw($FW_icondir); # icon base directory
 use vars qw($FW_cssdir);  # css directory
 use vars qw($FW_gplotdir);# gplot directory
+use vars qw($FW_confdir); # conf dir
 use vars qw($MW_dir);     # moddir (./FHEM), needed by edit Files in new
                           # structure
 
@@ -219,8 +221,7 @@ FHEMWEB_Initialize($)
     "widgetOverride"
   );
 
-  InternalTimer(time()+60, "FW_closeInactiveClients", 0, 0);
-
+  $FW_confdir  = "$attr{global}{modpath}/conf";
   $FW_dir      = "$attr{global}{modpath}/www";
   $FW_icondir  = "$FW_dir/images";
   $FW_cssdir   = "$FW_dir/pgm2";
@@ -268,6 +269,10 @@ FW_Define($$)
         if($port !~ m/^(IPV6:)?\d+$/);
 
   FW_Undef($hash, undef) if($hash->{OLDDEF}); # modify
+
+  RemoveInternalTimer(0, "FW_closeInactiveClients");
+  InternalTimer(time()+60, "FW_closeInactiveClients", 0, 0);
+
 
   foreach my $pe ("fhemSVG", "openautomation", "default") {
     FW_readIcons($pe);
@@ -362,6 +367,11 @@ FW_Read($$)
     my $mask = (ord(substr($hash->{BUF},1,1)) & 0x80)?1:0;
     my $len  = (ord(substr($hash->{BUF},1,1)) & 0x7F);
     my $i = 2;
+
+    if($op == 8) {
+      TcpServer_Close($hash, 1);
+      return;
+    }
 
     if( $len == 126 ) {
       $len = unpack( 'n', substr($hash->{BUF},$i,2) );
@@ -499,6 +509,7 @@ FW_Read($$)
        "Upgrade: websocket\r\n" .
        "Connection: Upgrade\r\n" .
        "Sec-WebSocket-Accept:$shastr=\r\n".
+      $FW_headerlines.
        "\r\n" );
     $FW_chash->{websocket} = 1;
 
@@ -2208,6 +2219,7 @@ sub
 FW_displayFileList($@)
 {
   my ($heading,@files)= @_;
+  return if(!@files);
   my $hid = lc($heading);
   $hid =~ s/[^A-Za-z]/_/g;
   FW_pO "<div class=\"fileList $hid\">$heading</div>";
@@ -2232,6 +2244,9 @@ FW_fileNameToPath($)
 {
   my $name = shift;
 
+  my @f = FW_confFiles(2);
+  return "$FW_confdir/$name" if ( map { $name =~ $_ } @f );
+
   $attr{global}{configfile} =~ m,([^/]*)$,;
   my $cfgFileName = $1;
   if($name eq $cfgFileName) {
@@ -2251,8 +2266,16 @@ FW_fileNameToPath($)
   }
 }
 
+sub FW_confFiles($) {
+   my ($param) = @_;
+   # create and return regexp for editFileList
+   return "(".join ( "|" , sort keys %{$data{confFiles}} ).")" if $param == 1;
+   # create and return array with filenames
+   return sort keys %{$data{confFiles}} if $param == 2;
+}
+
 ##################
-# List/Edit/Save css and gnuplot files
+# List/Edit/Save files
 sub
 FW_style($$)
 {
@@ -2276,6 +2299,7 @@ FW_style($$)
     my $efl = AttrVal($FW_wname, 'editFileList',
       "Own modules and helper files:\$MW_dir:^(.*sh|[0-9][0-9].*Util.*pm|".
                         ".*cfg|.*\.holiday|myUtilsTemplate.pm|.*layout)\$\n".
+      "Config files for external programs:\$FW_confdir:^".FW_confFiles(1)."\$\n".
       "Gplot files:\$FW_gplotdir:^.*gplot\$\n".
       "Style files:\$FW_cssdir:^.*(css|svg)\$");
     foreach my $l (split(/[\r\n]/, $efl)) {

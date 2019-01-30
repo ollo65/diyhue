@@ -1,5 +1,5 @@
 ##############################################
-# $Id: 10_FBDECT.pm 17992 2018-12-17 08:59:34Z rudolfkoenig $
+# $Id: 10_FBDECT.pm 18392 2019-01-23 20:29:57Z rudolfkoenig $
 package main;
 
 # See also https://avm.de/fileadmin/user_upload/Global/Service/Schnittstellen/AHA-HTTP-Interface.pdf
@@ -309,6 +309,8 @@ FBDECT_ParseHttp($$$)
     readingsBulkUpdate($hash, $ptyp, $pyld);
     readingsBulkUpdate($hash, "batteryState", $pyld ? "low" : "ok")
         if($ptyp eq "batterylow");
+    readingsBulkUpdate($hash, "batteryPercent", $val) # 87575/96302
+        if($ptyp eq "battery");
   }
   readingsEndUpdate($hash, 1);
 

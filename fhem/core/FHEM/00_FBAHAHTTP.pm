@@ -1,5 +1,5 @@
 ##############################################
-# $Id: 00_FBAHAHTTP.pm 17700 2018-11-07 11:35:48Z rudolfkoenig $
+# $Id: 00_FBAHAHTTP.pm 18401 2019-01-24 14:07:26Z rudolfkoenig $
 package main;
 
 # Documentation: AHA-HTTP-Interface.pdf, AVM_Technical_Note_-_Session_ID.pdf
@@ -70,9 +70,9 @@ FBAHAHTTP_Delete($)
 }
 
 sub
-FBAHAHTTP_connect($)
+FBAHAHTTP_connect($$)
 {
-  my ($hash) = @_;
+  my ($hash, $doProcess) = @_;
   my $name = $hash->{NAME};
   my $dev = $hash->{DEF};
 
@@ -103,6 +103,8 @@ FBAHAHTTP_connect($)
   $hash->{".SID"} = $sid;
   $hash->{STATE} = "connected";
   Log3 $name, 4, "FBAHAHTTP_connect $name: got SID $sid";
+  FBAHAHTTP_ProcessStack($hash)
+        if($doProcess && $hash->{CmdStack} && int(@{$hash->{CmdStack}}));
   return undef;
 }
 
@@ -129,7 +131,7 @@ FBAHAHTTP_Poll($)
   return if(IsDisabled($name));
 
   if(!$hash->{".SID"}) {
-    my $ret = FBAHAHTTP_connect($hash);
+    my $ret = FBAHAHTTP_connect($hash, 0);
     return $ret if($ret);
   }
   my $sid = $hash->{".SID"};
@@ -242,14 +244,16 @@ FBAHAHTTP_ProcessStack($)
         return;
       }
       
-      Log3 $name, 5, "FBAHAHTTP_Write reply for $name: $_[2]";
-      if(!defined($_[2]) || $_[2] eq "") {
+      my $ret = (defined($_[2]) ? $_[2] : "") ;
+      $ret =~ s/[\r\n]//g;
+      Log3 $name, 5, "FBAHAHTTP_Write reply for $name: $ret";
+      if($ret eq "") {
         if($hash->{RetriedCmd}) {
           Log3 $name, 1, "No sensible respone after reconnect, giving up";
           $hash->{CmdStack} = ();
           return;
         }
-        return if(FBAHAHTTP_connect($hash));
+        return if(FBAHAHTTP_connect($hash, 0));
         $hash->{RetriedCmd} = $msg;
         FBAHAHTTP_ProcessStack($hash);
         return;
@@ -278,10 +282,11 @@ FBAHAHTTP_Write($$$)
 
   my $sid = $hash->{".SID"};
   if(!$sid) {
-    my $ret = FBAHAHTTP_connect($hash);      # try to reconnect
+    my $ret = FBAHAHTTP_connect($hash, 1);      # try to reconnect
     return $ret if($ret);
     $sid = $hash->{".SID"};
   }
+  $fn =~ s/ //g;
   push(@{$hash->{CmdStack}}, "ain=$fn&switchcmd=$msg");
   FBAHAHTTP_ProcessStack($hash) if(@{$hash->{CmdStack}} == 1);
 }
