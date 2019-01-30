@@ -19938,3 +19938,61 @@ starting longpoll: http://127.0.0.1:8083/fhem?XHR=1&inform=type=status;addglobal
 [37m[1/30/2019, 10:54:32 AM][39m [36m[FHEM][39m     caching: Custom Actuation: 26 (as number; from '26%')
   2019-01-30 10:56:30 caching: FHT_Mara-actuator: 25%
 [37m[1/30/2019, 10:56:30 AM][39m [36m[FHEM][39m     caching: Custom Actuation: 25 (as number; from '25%')
+  2019-01-30 10:58:26 caching: FHT_Kueche-actuator: 69%
+[37m[1/30/2019, 10:58:26 AM][39m [36m[FHEM][39m     caching: Custom Actuation: 69 (as number; from '69%')
+  2019-01-30 10:59:27 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 10:59:27 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 10:59:31 caching: Bad_TH_LaCrosse-temperature: 18.2
+[37m[1/30/2019, 10:59:31 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.2 (as number; from '18.2')
+  2019-01-30 10:59:43 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 10:59:43 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 10:59:47 caching: Bad_TH_LaCrosse-temperature: 18.2
+[37m[1/30/2019, 10:59:47 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.2 (as number; from '18.2')
+  2019-01-30 11:00:02 caching: Hz_Wz_West-temperature: 22.3
+[37m[1/30/2019, 11:00:02 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 22.3 (as number; from '22.3')
+  2019-01-30 11:00:57 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 11:00:57 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 11:02:24 caching: FHT_Kueche-temperature: 21.0
+[37m[1/30/2019, 11:02:24 AM][39m [36m[FHEM][39m     caching: TargetTemperature: 21 (as number; from '21.0')
+  2019-01-30 11:02:43 caching: Gz_T_LaCrosse-temperature: 15
+[37m[1/30/2019, 11:02:43 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 15 (as number; from '15')
+  2019-01-30 11:04:21 caching: FHT_Mara-temperature: 19.2
+[37m[1/30/2019, 11:04:21 AM][39m [36m[FHEM][39m     caching: TargetTemperature: 19 (as number; from '19.2')
+  2019-01-30 11:05:43 caching: Bad_TH_LaCrosse-temperature: 18.4
+[37m[1/30/2019, 11:05:43 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.4 (as number; from '18.4')
+  2019-01-30 11:05:47 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 11:05:47 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 11:05:51 caching: Bad_TH_LaCrosse-temperature: 18.4
+[37m[1/30/2019, 11:05:51 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.4 (as number; from '18.4')
+  2019-01-30 11:06:20 caching: FHT_Kueche-actuator: 65%
+[37m[1/30/2019, 11:06:20 AM][39m [36m[FHEM][39m     caching: Custom Actuation: 65 (as number; from '65%')
+  2019-01-30 11:07:09 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 11:07:09 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 11:07:11 caching: Gz_T_LaCrosse-temperature: 14.9
+[37m[1/30/2019, 11:07:11 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 14.9 (as number; from '14.9')
+  2019-01-30 11:08:18 caching: FHT_Kueche-actuator: 62%
+[37m[1/30/2019, 11:08:18 AM][39m [36m[FHEM][39m     caching: Custom Actuation: 62 (as number; from '62%')
+  2019-01-30 11:08:39 caching: Bad_TH_LaCrosse-temperature: 18.4
+[37m[1/30/2019, 11:08:39 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.4 (as number; from '18.4')
+  2019-01-30 11:08:47 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 11:08:47 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 11:08:49 caching: Wetter-pressure: 998.7
+[37m[1/30/2019, 11:08:49 AM][39m [36m[FHEM][39m     caching: Custom AirPressure: 999 (as number; from '998.7')
+  2019-01-30 11:08:49 caching: Wetter-temperature: 0.1
+[37m[1/30/2019, 11:08:49 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 0.1 (as number; from '0.1')
+  2019-01-30 11:10:13 caching: Bad_TH_LaCrosse-temperature: 18.4
+[37m[1/30/2019, 11:10:13 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.4 (as number; from '18.4')
+  2019-01-30 11:10:18 caching: Gz_T_LaCrosse-temperature: 15
+[37m[1/30/2019, 11:10:18 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 15 (as number; from '15')
+  2019-01-30 11:11:29 caching: Sz_T_LaCrosse-temperature: 17
+[37m[1/30/2019, 11:11:29 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 17 (as number; from '17')
+  2019-01-30 11:11:39 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 11:11:39 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 11:11:43 caching: Bad_TH_LaCrosse-temperature: 18.4
+[37m[1/30/2019, 11:11:43 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.4 (as number; from '18.4')
+  2019-01-30 11:11:48 caching: Bad_TH_LaCrosse-temperature: 18.3
+[37m[1/30/2019, 11:11:48 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 11:12:02 caching: Hz_Wz_West-temperature: 22.8
+[37m[1/30/2019, 11:12:02 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 22.8 (as number; from '22.8')
+  2019-01-30 11:12:02 caching: Hz_Wz_West-valveposition: 68
+[37m[1/30/2019, 11:12:02 AM][39m [36m[FHEM][39m     caching: Custom Actuation: 68 (as number; from '68')
