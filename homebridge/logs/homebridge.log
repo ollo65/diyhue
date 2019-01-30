@@ -20006,3 +20006,5 @@ starting longpoll: http://127.0.0.1:8083/fhem?XHR=1&inform=type=status;addglobal
 [37m[1/30/2019, 11:14:31 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.4 (as number; from '18.4')
   2019-01-30 11:14:39 caching: Bad_TH_LaCrosse-temperature: 18.3
 [37m[1/30/2019, 11:14:39 AM][39m [36m[FHEM][39m     caching: CurrentTemperature: 18.3 (as number; from '18.3')
+  2019-01-30 11:16:12 caching: FHT_Kueche-actuator: 61%
+[37m[1/30/2019, 11:16:12 AM][39m [36m[FHEM][39m     caching: Custom Actuation: 61 (as number; from '61%')
